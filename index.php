@@ -1,59 +1,64 @@
-<HTML>
-    <HEAD>
-    <TITLE>Extract Data from PK and load to local DB</TITLE>
-    </HEAD>
-    <BODY>
-    <H3>Extracting data from original PK system and loading into local PK databse</H3>
-    <?php
-    // DB definition of account : PK original database
-    define("DBNAME","localhost:C:/Users/jmuthukudage/Documents/Data/CMPDWIN.PKF"); // data bsse name
-    define("DBUSER","SYSDBA"); // user name
-    define("DBPASS","masterkey"); // password
-    
-    //MySQL connect: local DB
-    
-		$con=mysqli_connect("localhost","root","","pk");
-		// Check connection
-		if (mysqli_connect_errno())
-		  {
-		  echo "Failed to connect to MySQL: " . mysqli_connect_error();
-		  }
-				
-    //End MySQL connect
+<?php
 
-    // DB connection to Original PK database
-    $dbh = ibase_connect(DBNAME,DBUSER,DBPASS);
-    if ($dbh == FALSE) {
-    echo 'could not connect to Original PK<BR>';
-    } else {
-    echo 'success to connect to PK<BR>';
-	$stmt = 'SELECT RDB$RELATION_NAME AS REL_NAME FROM RDB$RELATIONS WHERE RDB$SYSTEM_FLAG=0';
-    $sth = ibase_query($dbh, $stmt);
-   while ($row = ibase_fetch_object($sth)) {
-   	
-	$stmt2 = 'SELECT * FROM '.$row->REL_NAME;
-    $sth2 = ibase_query($dbh, $stmt2);
+$test=array(
+array('PATIENT_CODE','TX-Patient Code'),
+array('RX_NUMBER','TX-Trans Number'),
+);
+
+function getFieldList($databaseName_source, $tableName_source,$databseName_target,$tableName_target)
+{
+$returnArray=array();
+
+$link = mysql_connect("localhost", "root", "", "test");
+
+/* check connection */
+if (mysql_connect_errno()) {
+    printf("Connect failed: %s\n", mysqli_connect_error());
+    exit();
+}
+
+$result_source = mysql_query($link,"SELECT * FROM $tableName_source");
+while($fields_source = mysql_fetch_field($result_source)){
+
+echo $fields_source->name;
+}
+
+mysql_free_result($result_source);
+}
+
+function getSQL($fieldMap, $source, $target, $sPrefix='s',$tPrefix='t')
+{
 	
-	 $sql1= "DELET from $row->REL_NAME";
-	 mysqli_query($con,$sql1);
-	 
-	 while ($row2 = ibase_fetch_row($sth2)) {
-	 	   
-	    	$sql2 = "INSERT INTO $row->REL_NAME values ('".implode($row2,"','")."')";
-		   // echo $sql.nl2br('<br>'); 
-		    mysqli_query($con,$sql2);
-		    
-		}
-       
-     }
-     
-	echo "Done...";
-    ibase_free_result($sth);
-    // DB dis connection
-    mysqli_close($con);
-    ibase_close($dbh);
-    }
-    ?>
-
-    </BODY>
-    </HTML>
+	$fieldListFrom="";
+	$fieldListTo="";
+	$fieldUpdateList="";
+	
+	foreach($fieldMap as $map){
+		
+		$fieldListFrom=$fieldListFrom."`".$sPrefix."`.`".$map[1]."`,";
+		$fieldListTo=$fieldListTo."`".$map[0]."`,";
+		$fieldUpdateList=$fieldUpdateList."`".$map[0]."`=`".$sPrefix."`.`".$map[1]."`,";
+	}
+	
+	// remove last ,
+	$fieldListFrom=substr($fieldListFrom,0,-1);
+	$fieldListTo=substr($fieldListTo,0,-1);
+	$fieldUpdateList=substr($fieldUpdateList,0,-1);
+	
+	
+	$sql= " INSERT INTO
+	        $target 
+	        ( $fieldListTo)
+	        SELECT 
+	        $fieldListFrom
+	        FROM
+	        $source as $sPrefix 
+	        ON DUPLICATE KEY UPDATE 
+	        $fieldUpdateList";
+	
+	return $sql;
+}
+  
+  
+  //echo getSQL($test,'source','target');    
+  getFieldList('pk','test','jmuthukudage','test2');
